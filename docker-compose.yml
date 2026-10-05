@@ -9,6 +9,23 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workout -d workout"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/workout
+      SPRING_DATASOURCE_USERNAME: workout
+      DB_PASSWORD: workout
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:
