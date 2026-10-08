@@ -52,7 +52,12 @@ public class Exercise {
     public String getComment() {
         return comment;
     }
-    
+
+    public void updateDetails(String name, String comment) {
+        this.name = name;
+        this.comment = comment;
+    }
+
     public List<ExerciseMuscleGroup> getMuscleGroups() {
         return muscleGroups;
     }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.validation.Valid;
 
@@ -29,6 +30,12 @@ public class MuscleGroupController {
 
     @PostMapping
     public ResponseEntity<MuscleGroup> create(@Valid @RequestBody CreateMuscleGroupRequest request) {
+        if (repository.existsByNameIgnoreCase(request.name())) {
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Muscle group '" + request.name() + "' already exists");
+        }
+
         MuscleGroup saved = repository.save(new MuscleGroup(request.name()));
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }

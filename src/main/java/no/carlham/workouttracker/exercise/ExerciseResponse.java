@@ -20,7 +20,7 @@ public record ExerciseResponse(
                     link.getMuscleGroup().getId(),
                     link.getMuscleGroup().getName(),
                     link.getRole()))
-                .toList()      
+                .toList()
         );
     }
 }
