@@ -23,6 +23,9 @@ public class Exercise {
 
     private String comment;
 
+    // How to perform the exercise; comment is for notes about it
+    private String description;
+
     private Long ownerId;
 
     @OneToMany(mappedBy = "exercise", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -32,9 +35,18 @@ public class Exercise {
     protected Exercise() {
     }
 
-    public Exercise(String name, String comment ) {
+    /**
+     * @param ownerId the user who owns this exercise, or null for a preset exercise shared by everyone
+     */
+    public Exercise(String name, String comment, String description, Long ownerId) {
         this.name = name;
         this.comment = comment;
+        this.description = description;
+        this.ownerId = ownerId;
+    }
+
+    public Exercise(String name, String comment, Long ownerId) {
+        this(name, comment, null, ownerId);
     }
 
     public Long getId() {
@@ -49,13 +61,22 @@ public class Exercise {
         return ownerId;
     }
 
+    public boolean isPreset() {
+        return ownerId == null;
+    }
+
     public String getComment() {
         return comment;
     }
 
-    public void updateDetails(String name, String comment) {
+    public String getDescription() {
+        return description;
+    }
+
+    public void updateDetails(String name, String comment, String description) {
         this.name = name;
         this.comment = comment;
+        this.description = description;
     }
 
     public List<ExerciseMuscleGroup> getMuscleGroups() {

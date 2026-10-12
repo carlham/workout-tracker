@@ -6,6 +6,8 @@ public record ExerciseResponse(
     Long id,
     String name,
     String comment,
+    String description,
+    boolean preset,
     List<MuscleGroupResponse> muscleGroups
 ) {
     public record MuscleGroupResponse(Long id, String name, MuscleRole role) {}
@@ -15,6 +17,8 @@ public record ExerciseResponse(
             exercise.getId(),
             exercise.getName(),
             exercise.getComment(),
+            exercise.getDescription(),
+            exercise.isPreset(),
             exercise.getMuscleGroups().stream()
                 .map(link -> new MuscleGroupResponse(
                     link.getMuscleGroup().getId(),
