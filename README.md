@@ -10,8 +10,9 @@ Spring Boot + PostgreSQL backend for planning and logging workouts. Work in prog
 - Muscle groups seeded, with endpoints to list and add them (`/api/muscle-groups`, adding is admin-only)
 - 41 preset exercises seeded with short technique cues, each linked to its primary and secondary muscle groups
 - Exercise CRUD endpoints with validation, paging and ownership (`/api/exercises`)
+- Workout templates with ordered exercises, rep-range or timed targets, public sharing and copying (`/api/templates`)
 - Tests: unit, web layer, repository and full auth flow tests (Testcontainers), run by GitHub Actions on every push
-- Next: workout templates and sessions
+- Next: workout sessions (logging sets)
 
 ## Running locally
 ```bash
@@ -38,6 +39,8 @@ Requires Docker running (Testcontainers starts its own Postgres).
 - Exercises a user creates are private to that user.
 - Exercises an admin creates become presets.
 - Names are unique (ignoring case) among presets and within each user's own exercises; duplicates return 409.
+- Templates are private unless marked public. Anyone can view and copy a public template; only the owner can change it.
+- Public templates can only contain preset exercises, so they never expose anyone's private exercises.
 
 New users get the `USER` role. To make someone an admin:
 ```sql
