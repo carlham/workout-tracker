@@ -16,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -118,6 +119,35 @@ class ExerciseControllerTest {
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson()
                 .extractingPath("$.errors").asMap().containsKeys("name", "muscleGroups");
+    }
+
+    @Test
+    void updateReportsWhichFieldIsInvalid() {
+        // PUT has a constraint on the path id too, so Spring reports body errors through a different exception
+        assertThat(mvc.put().uri("/api/exercises/1")
+                .with(user(1))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "name": "" }
+                        """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson()
+                .extractingPath("$.errors").asMap().containsKey("name");
+    }
+
+    @Test
+    void racingDuplicateBecomesConflict() {
+        // Two creates with the same name at the same moment: the database stops the second one
+        when(service.create(any(CreateExerciseRequest.class), eq(USER_1)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+        assertThat(mvc.post().uri("/api/exercises")
+                .with(user(1))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "name": "Squat", "muscleGroups": [ { "muscleGroupId": 6, "role": "PRIMARY" } ] }
+                        """))
+                .hasStatus(HttpStatus.CONFLICT);
     }
 
     @Test

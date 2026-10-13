@@ -7,7 +7,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
 public interface ExerciseRepository extends JpaRepository<Exercise, Long> {
     @Override
@@ -17,6 +16,11 @@ public interface ExerciseRepository extends JpaRepository<Exercise, Long> {
     List<Exercise> findByNameIgnoreCase(String name);
 
     /** Preset exercises plus the given user's own exercises. */
-    @Query("select e from Exercise e where e.ownerId is null or e.ownerId = :userId")
-    Page<Exercise> findVisibleTo(Long userId, Pageable pageable);
+    default Page<Exercise> findVisibleTo(Long userId, Pageable pageable) {
+        return findByOwnerIdIsNullOrOwnerId(userId, pageable);
+    }
+
+    // A derived query rather than @Query, so an unknown sort property fails with PropertyReferenceException
+    // like the other paged queries, which ApiExceptionHandler turns into a 400
+    Page<Exercise> findByOwnerIdIsNullOrOwnerId(Long ownerId, Pageable pageable);
 }

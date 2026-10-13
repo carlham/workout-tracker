@@ -64,7 +64,7 @@ public class AuthService {
     @Transactional
     public Tokens login(LoginRequest request) {
         // Same error for unknown user and wrong password, so the response doesn't reveal which usernames exist
-        User user = userRepository.findByUsername(request.username())
+        User user = userRepository.findByUsernameIgnoreCase(request.username())
             .filter(found -> passwordEncoder.matches(request.password(), found.getPasswordHash()))
             .orElseThrow(() -> unauthorized("Invalid username or password"));
 
@@ -80,17 +80,25 @@ public class AuthService {
         Instant now = Instant.now();
 
         if (current.isRevoked()) {
-            // Each refresh token is single-use. Seeing one again means it was probably stolen,
-            // so log the user out everywhere.
-            refreshTokenRepository.revokeAllForUser(current.getUser().getId(), now);
-            throw unauthorized("Invalid refresh token");
+            throw reuseDetected(current, now);
         }
         if (current.isExpired(now)) {
             throw unauthorized("Refresh token has expired");
         }
 
-        current.revoke(now);
+        // Revoke in the database, only if it's still active. If two requests use the same token at the
+        // same moment, both pass the check above, but only one of these updates changes a row.
+        if (refreshTokenRepository.revokeIfActive(current.getId(), now) == 0) {
+            throw reuseDetected(current, now);
+        }
         return issueTokens(current.getUser());
+    }
+
+    // Each refresh token is single-use. Seeing one again means it was probably stolen,
+    // so log the user out everywhere.
+    private ResponseStatusException reuseDetected(RefreshToken token, Instant now) {
+        refreshTokenRepository.revokeAllForUser(token.getUser().getId(), now);
+        return unauthorized("Invalid refresh token");
     }
 
     @Transactional
