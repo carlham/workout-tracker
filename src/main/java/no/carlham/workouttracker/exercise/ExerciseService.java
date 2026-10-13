@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -90,7 +91,18 @@ public class ExerciseService {
                 "Unknown exercise id " + id));
 
         requireCanModify(exercise, user);
-        exerciseRepository.delete(exercise);
+
+        // Templates and sessions reference exercises, and the database blocks deleting one that's in use.
+        // We let it check rather than asking those packages, which already depend on this one.
+        // Flushing makes the DELETE run now, so the error can be caught here.
+        try {
+            exerciseRepository.delete(exercise);
+            exerciseRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Exercise is used in a template or session and can't be deleted");
+        }
     }
 
     // Other users' exercises are reported as "not found" rather than "forbidden",

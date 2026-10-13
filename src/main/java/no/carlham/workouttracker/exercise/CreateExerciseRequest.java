@@ -12,7 +12,7 @@ public record CreateExerciseRequest(
         @NotBlank @Size(max = 200) String name,
         @Size(max = 1000) String comment,
         @Size(max = 1000) String description,
-        @NotEmpty List<@Valid MuscleGroupLink> muscleGroups) {
+        @NotEmpty List<@NotNull @Valid MuscleGroupLink> muscleGroups) {
 
         public record MuscleGroupLink(
                 @NotNull Long muscleGroupId,

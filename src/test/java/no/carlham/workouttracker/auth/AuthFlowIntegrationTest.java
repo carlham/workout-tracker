@@ -1,6 +1,7 @@
 package no.carlham.workouttracker.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.UnsupportedEncodingException;
 
@@ -9,7 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -19,6 +22,8 @@ import com.jayway.jsonpath.JsonPath;
 
 import jakarta.servlet.http.Cookie;
 import no.carlham.workouttracker.TestcontainersConfiguration;
+import no.carlham.workouttracker.user.User;
+import no.carlham.workouttracker.user.UserRepository;
 
 /**
  * Runs the whole auth flow through the real app and a real database: no mocks.
@@ -33,6 +38,12 @@ class AuthFlowIntegrationTest {
 
     @Autowired
     private MockMvcTester mvc;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void loginGivesAccessTokenAndHttpOnlyRefreshCookie() {
@@ -98,6 +109,45 @@ class AuthFlowIntegrationTest {
     void invalidAccessTokenIsRejected() {
         assertThat(mvc.get().uri("/api/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer not-a-real-token"))
                 .hasStatus(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void loginIgnoresCaseOfUsername() {
+        register("MixedCase");
+
+        assertThat(login("mixedcase", PASSWORD)).hasStatusOk();
+    }
+
+    @Test
+    void databaseRejectsUsernamesDifferingOnlyInCase() {
+        // Backstop for two registrations racing past the service's check
+        userRepository.saveAndFlush(new User("Twin", "not-a-real-hash"));
+
+        assertThatThrownBy(() -> userRepository.saveAndFlush(new User("twin", "not-a-real-hash")))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void roleClaimInRealTokenControlsAdminAccess() {
+        // Other tests fake admin tokens; this checks a real token's "role" claim becomes ROLE_ADMIN
+        register("real-admin");
+        jdbcTemplate.update("UPDATE users SET role = 'ADMIN' WHERE username = 'real-admin'");
+        register("real-user");
+
+        assertThat(createMuscleGroup(accessToken(login("real-user", PASSWORD)), "Forearms"))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(createMuscleGroup(accessToken(login("real-admin", PASSWORD)), "Forearms"))
+                .hasStatus(HttpStatus.CREATED);
+    }
+
+    private MvcTestResult createMuscleGroup(String accessToken, String name) {
+        return mvc.post().uri("/api/muscle-groups")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "name": "%s" }
+                        """.formatted(name))
+                .exchange();
     }
 
     private void register(String username) {

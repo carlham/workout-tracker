@@ -14,12 +14,17 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.data.web.PageableDefault;
 
+import org.springdoc.core.annotations.ParameterObject;
+
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import no.carlham.workouttracker.security.CurrentUser;
 
+@Tag(name = "Exercises")
 @RestController
 @RequestMapping("/api/exercises")
 public class ExerciseController {
@@ -31,7 +36,7 @@ public class ExerciseController {
 
     @GetMapping
     public Page<ExerciseResponse> getAll(
-            @PageableDefault(size = 20, sort = "name") Pageable pageable,
+            @ParameterObject @PageableDefault(size = 20, sort = "name") Pageable pageable,
             @AuthenticationPrincipal Jwt jwt) {
         return service.getAll(pageable, CurrentUser.from(jwt)).map(ExerciseResponse::from);
     }
@@ -49,7 +54,7 @@ public class ExerciseController {
         return service.getById(id, CurrentUser.from(jwt))
                 .map(ExerciseResponse::from)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown exercise id " + id));
     }
 
     @PutMapping("/{id}")
@@ -58,7 +63,7 @@ public class ExerciseController {
             @AuthenticationPrincipal Jwt jwt) {
         return service.update(id, request, CurrentUser.from(jwt))
                 .map(exercise -> ResponseEntity.ok(ExerciseResponse.from(exercise)))
-                .orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown exercise id " + id));
     }
 
     @DeleteMapping("/{id}")

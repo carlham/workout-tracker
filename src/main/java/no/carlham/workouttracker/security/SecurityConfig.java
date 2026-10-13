@@ -21,6 +21,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -47,9 +49,12 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                 .requestMatchers("/error").permitAll()
+                // API documentation. Set springdoc.api-docs.enabled=false to turn it off in a deployment.
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/muscle-groups").hasRole("ADMIN")
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth -> oauth
+                .bearerTokenResolver(bearerTokenResolver())
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler))
@@ -74,6 +79,16 @@ public class SecurityConfig {
     PasswordEncoder passwordEncoder() {
         // Stores hashes as "{bcrypt}...", so the algorithm can be upgraded later without breaking old passwords
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+
+    // Reads the access token from the Authorization header, except on the public auth endpoints.
+    // Spring would otherwise reject an invalid token before checking permitAll, so a frontend that sends
+    // its expired token along with POST /api/auth/refresh would get a 401 and could never refresh.
+    private static BearerTokenResolver bearerTokenResolver() {
+        DefaultBearerTokenResolver headerResolver = new DefaultBearerTokenResolver();
+        return request -> request.getRequestURI().startsWith("/api/auth/")
+                ? null
+                : headerResolver.resolve(request);
     }
 
     // Turns the token's "role" claim into a Spring authority, e.g. "ADMIN" -> "ROLE_ADMIN",

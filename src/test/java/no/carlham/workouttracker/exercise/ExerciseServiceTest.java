@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -187,6 +189,14 @@ class ExerciseServiceTest {
         service.deleteById(10L, USER_1);
 
         verify(exerciseRepository).delete(exercise);
+    }
+
+    @Test
+    void deletingExerciseInUseIsConflict() {
+        when(exerciseRepository.findById(10L)).thenReturn(Optional.of(new Exercise("Squat", null, 1L)));
+        doThrow(new DataIntegrityViolationException("foreign key violation")).when(exerciseRepository).flush();
+
+        assertStatus(() -> service.deleteById(10L, USER_1), HttpStatus.CONFLICT);
     }
 
     @Test
